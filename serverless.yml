@@ -16,6 +16,14 @@ provider:
     CHARGERS_TABLE: Chargers # Naziv DynamoDB tabele
 
 functions: # Sekcija koja definiše Lambda funkcije
+  getChargersByTown:
+    handler: getChargersByTown.handler
+    description: Get chargers by town
+    role: GetChargersRole
+    events:
+      - http:
+          path: chargers/{town}
+          method: get
   syncOCMdata: # Naziv funkcije (logički ID)
     handler: syncOCMdata.handler # Fajl.nazivFunkcije (index.js exports.handler)
     description: Sync data from Open Charge Map
@@ -102,6 +110,38 @@ resources: # CloudFormation resursi sekcija
                     - !GetAtt ChargersTable.Arn # ARN tabele
                     - !Join ["/", [!GetAtt ChargersTable.Arn, "index/*"]] # ARN indeksa
           - PolicyName: CloudWatchLogs # Polisa za Lambda logove
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: "*"
+    GetChargersRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: getChargers-role-${sls:stage}
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: DynamoDBReadAccess
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:Query
+                  Resource:
+                    - !GetAtt ChargersTable.Arn
+                    - !Join ["/", [!GetAtt ChargersTable.Arn, "index/*"]]
+          - PolicyName: CloudWatchLogs
             PolicyDocument:
               Version: "2012-10-17"
               Statement:
